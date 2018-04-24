@@ -16,10 +16,10 @@ id_node = "aruco"
 positive_answ = 1
 
 
-I_z = 0
+I = 0
 I_x = 0
 
-last_error_z = 0
+last_error = 0
 last_error_x = 0
 
 setpoint_z = 0.8
@@ -46,7 +46,7 @@ request_lock_service = rospy.ServiceProxy('request_lock',RequestLockService)
 
 
 def calculatePID(error,Kp,Ki,Kd):
-	global last_error_z, I
+	global last_error, I
 	
 	P = error
 	if P > 100:
@@ -76,55 +76,71 @@ def turnOffMotors():
 	# DEBUG VERSION TO FIX
 	twistMessage.linear.x = 0
 	twistMessage.linear.y = 0
-	pub.publish(twistMessage)
+	pub.publish(followmessage)
 
 def setSpeed(speed1,speed2):
 	if speed1 == 0 and speed2 == 0:
 		turnOffMotors()
 	else:
+		print ('sono qui')
 		twistMessage.linear.x = speed1
 		twistMessage.linear.y = speed2
-		pub.publish(twistMessage)
+		followmessage.twist = twistMessage
+		pub.publish(followmessage)
 
 def callback(data):
 	global setpoint_x, setpoint_z
 
-	transform = data.transforms.transform
-	vector = transform.translation
+	
+	transform_array = data.transforms
 
-	current_x = vector.x
-	current_z = vector.z
-
-	error_x = (setpoint_x - current_x)*100
-	error_z = (setpoint_z - current_z)*100 #errore negativo sono troppo lontano
-
-
-	speed2 = 120
-	motorBalance = -3
-	speed1 = speed2 + motorBalance
-
-	PID_z = calculatePID(error_z,0.6,0.0005,0.005)
-#	rospy.loginfo(error)
-
-	if error_z == 0:
-		setSpeed(speed1,speed2)
-
-	elif (error_z > 0 and error_z < 150):
-		setSpeed(speed1-PID_z,speed2-PID_z)
-
-	elif (error_z < 0):
-		setSpeed(speed1+PID_z,speed2+PID_z)
+	if transform_array == []:
+		y = 0
+		#print('non vedo nulla')
 	else:
-		turnOffMotors()
+	
+		transform = transform_array[0].transform
+		vector = transform.translation
+
+		current_x = vector.x
+		current_z = vector.z
+
+		error_x = (setpoint_x - current_x)*100
+		error_z = (setpoint_z - current_z)*100 #errore negativo sono troppo lontano
+
+		print('errore z: ',error_z)
+
+
+		speed2 = 120
+		motorBalance = 0
+		speed1 = speed2 + motorBalance
+
+		PID_z = calculatePID(error_z,0.6,0.0005,0.005)
+	#	rospy.loginfo(error)
+		print ('PID_z: ', PID_z)
+
+		if error_z == 0:
+			setSpeed(speed1,speed2)
+
+		elif (error_z > 0 and error_z < 150):
+			setSpeed(speed1+PID_z,speed2+PID_z)
+
+		elif (error_z < 0):
+			newSpeed1 = speed1-PID_z
+			newSpeed2 = speed2-PID_z
+			setSpeed(newSpeed1,newSpeed2)
+		else:
+			turnOffMotors()
+	
 
 def aruco_follower():
 	rospy.init_node('aruco_follower', anonymous=True)
 
-    #Sottosrizione al topic shared lock
-    rospy.Subscriber("lock_shared",Lock,checkMessage)
+    	#Sottosrizione al topic shared lock
+    	rospy.Subscriber("lock_shared",Lock,checkMessage)
 
 
-	rospy.Subscriber('fiducial_transform', FiducialTransformArray, requestLock)
+	rospy.Subscriber('fiducial_transforms', FiducialTransformArray, requestLock)
 	try:
 		rospy.spin()
 	except KeyboardInterrupt:
@@ -145,7 +161,7 @@ def requestLock(data):
             lock = True
             callback(data)
         else:
-        	rospy.loginfo("SONO QUI")
+            rospy.loginfo("SONO QUI")
             msg_shared = rospy.wait_for_message("/lock_shared", Lock)
             checkMessage(msg_shared)
 
