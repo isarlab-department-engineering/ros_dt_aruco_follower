@@ -23,7 +23,11 @@ last_error = 0
 last_error_x = 0
 
 setpoint_z = 0.8
-setpoint_x = 0.0
+setpoint_x = -0.25
+
+last_speed = 0
+
+max_speed = 180
 
 twistMessage = Twist()
 twistMessage.linear.x = 0
@@ -56,10 +60,10 @@ def calculatePID(error,Kp,Ki,Kd):
 
 	I = I + error
 	
-	if I > 300:
-		I = 300
-	elif I < -300:
-		I = -300
+	if I > 50:
+		I = 50
+	elif I < -50:
+		I = -50
 
 	if error < 10 and error > -10:
 		I = I - I/2
@@ -71,6 +75,36 @@ def calculatePID(error,Kp,Ki,Kd):
 	last_error = error
 	
 	return PID
+
+
+def calculatePID_x(error_x,Kp,Ki,Kd):
+	global last_error_x, I_x
+	
+	P = error
+	if P > 100:
+		P = 100
+	elif P < -100:
+		P = -100
+
+	I_x = I_x + error
+	
+	if I_x > 50:
+		I_x = 50
+	elif I_x < -50:
+		I_x = -50
+
+	if error < 10 and error > -10:
+		I_x = I_x - I_x/2
+
+	D = error - last_error_x
+
+	PID = int(Kp*P + Ki*I_x + Kd*D)
+
+	last_error_x = error
+	
+	return PID
+
+
 
 def turnOffMotors():
 	# DEBUG VERSION TO FIX
@@ -89,7 +123,7 @@ def setSpeed(speed1,speed2):
 		pub.publish(followmessage)
 
 def callback(data):
-	global setpoint_x, setpoint_z
+	global setpoint_x, setpoint_z, last_speed, max_speed
 
 	
 	transform_array = data.transforms
@@ -109,26 +143,42 @@ def callback(data):
 		error_z = (setpoint_z - current_z)*100 #errore negativo sono troppo lontano
 
 		print('errore z: ',error_z)
+		print('errore x: ',error_x)
 
 
-		speed2 = 120
+		speed2 = last_speed
 		motorBalance = 0
 		speed1 = speed2 + motorBalance
 
-		PID_z = calculatePID(error_z,0.6,0.0005,0.005)
+		PID_z = calculatePID(error_z,0.6,0,0)
+		PID_x = calculatePID(error_x,0.8,0,0)
 	#	rospy.loginfo(error)
 		print ('PID_z: ', PID_z)
+		print ('PID_x: ', PID_x)
 
 		if error_z == 0:
 			setSpeed(speed1,speed2)
 
-		elif (error_z > 0 and error_z < 150):
-			setSpeed(speed1+PID_z,speed2+PID_z)
+		elif (error_x > 0 and error_x < 150):
+			newSpeed1 = speed1-PID_z-PID_x
+			newSpeed2 = speed2-PID_z+PID_x
+			if newSpeed1 <= max_speed:
+				setSpeed(newSpeed1,newSpeed2)
+				last_speed = newSpeed1
+			else:
+				setSpeed(max_speed,max_speed)
+				last_speed = max_speed
+			
 
-		elif (error_z < 0):
-			newSpeed1 = speed1-PID_z
-			newSpeed2 = speed2-PID_z
-			setSpeed(newSpeed1,newSpeed2)
+		elif (error_x < 0):
+			newSpeed1 = speed1-PID_z-PID_x
+			newSpeed2 = speed2-PID_z+PID_x
+			if newSpeed1 <= max_speed:
+				setSpeed(newSpeed1,newSpeed2)
+				last_speed = newSpeed2
+			else:
+				setSpeed(max_speed,max_speed)
+				last_speed = max_speed
 		else:
 			turnOffMotors()
 	
