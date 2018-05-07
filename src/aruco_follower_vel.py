@@ -116,7 +116,6 @@ def setSpeed(speed1,speed2):
 	if speed1 == 0 and speed2 == 0:
 		turnOffMotors()
 	else:
-		print ('sono qui')
 		twistMessage.linear.x = speed1
 		twistMessage.linear.y = speed2
 		followmessage.twist = twistMessage
@@ -149,13 +148,13 @@ def callback(data):
 
 
 		PID_z = calculatePID(error_z,1.6,0,0)
-		PID_x = calculatePID(error_x,0.8,0,0)
+		PID_x = calculatePID(error_x,1,0,0)
 	#	rospy.loginfo(error)
 		print ('PID_z: ', PID_z)
 		print ('PID_x: ', PID_x)
 
 
-		speed2 = np.minimum(max_speed, PID_z)
+		speed2 = -PID_z
 		motorBalance = 0
 		speed1 = speed2 + motorBalance
 
@@ -164,15 +163,15 @@ def callback(data):
 			setSpeed(speed1,speed2)
 
 		elif (error_x > 0 and error_x < 150):
-			newSpeed1 = speed1 #-PID_x
-			newSpeed2 = speed2 #+PID_x
-			setSpeed(speed1,speed2)
+			newSpeed1 = speed1-PID_x 
+			newSpeed2 = speed2+PID_x 
+			setSpeed(newSpeed1,newSpeed2)
 			
 
 		elif (error_x < 0):
-			newSpeed1 = speed1 #-PID_x
-			newSpeed2 = speed2 #+PID_x
-			setSpeed(speed1,speed2)
+			newSpeed1 = speed1-PID_x 
+			newSpeed2 = speed2+PID_x 
+			setSpeed(newSpeed1,newSpeed2)
 
 		else:
 			turnOffMotors()
