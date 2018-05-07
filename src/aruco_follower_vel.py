@@ -60,13 +60,12 @@ def calculatePID(error,Kp,Ki,Kd):
 
 	I = I + error
 	
-	if I > 50:
-		I = 50
-	elif I < -50:
-		I = -50
+	if I > 35:
+		I = 35
+	elif I < -35:
+		I = -35
 
-	if error < 10 and error > -10:
-		I = I - I/2
+
 
 	D = error - last_error
 
@@ -80,27 +79,29 @@ def calculatePID(error,Kp,Ki,Kd):
 def calculatePID_x(error_x,Kp,Ki,Kd):
 	global last_error_x, I_x
 	
-	P = error
+	P = error_x
 	if P > 100:
 		P = 100
 	elif P < -100:
 		P = -100
 
-	I_x = I_x + error
+	I_x = I_x + error_x
 	
-	if I_x > 50:
-		I_x = 50
-	elif I_x < -50:
-		I_x = -50
+	if I_x > 10:
+		I_x = 10
+	elif I_x < -10:
+		I_x = -10
 
-	if error < 10 and error > -10:
-		I_x = I_x - I_x/2
+	#if error_x * I_x < 0:
+		#I_x = 0
 
-	D = error - last_error_x
+	D = error_x - last_error_x
 
 	PID = int(Kp*P + Ki*I_x + Kd*D)
 
-	last_error_x = error
+	last_error_x = error_x
+
+	print('Integrale = ' , I_x)
 	
 	return PID
 
@@ -147,10 +148,11 @@ def callback(data):
 
 
 
-		PID_z = calculatePID(error_z,1.6,0,0)
-		PID_x = calculatePID(error_x,1,0,0)
-	#	rospy.loginfo(error)
-		print ('PID_z: ', PID_z)
+		PID_z = calculatePID(error_z,1.5,0.15,0.1)
+		#PID_z = 0
+		PID_x = calculatePID_x(error_x,0.6,0.5,0.4)
+		#PID_x = np.abs(PID_x)
+		#print ('PID_z: ', PID_z)
 		print ('PID_x: ', PID_x)
 
 
@@ -160,6 +162,7 @@ def callback(data):
 
 
 		if error_z == 0:
+			
 			setSpeed(speed1,speed2)
 
 		elif (error_x > 0 and error_x < 150):
